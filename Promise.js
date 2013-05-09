@@ -11,7 +11,7 @@
 
 Ext.namespace('Sch.util');
 
-Sch.util.Promise = Ext.extend(Ext.util.Observable, (function () {
+Sch.util.Promise = Ext.extend(Object, (function() {
     function _resolve(promise, value) {
         if (promise === value) {
             _fulfill(promise, value);
@@ -33,13 +33,13 @@ Sch.util.Promise = Ext.extend(Ext.util.Observable, (function () {
 
             if (typeof then === 'function') {
                 try {
-                    then.call(value, function (val) {
+                    then.call(value, function(val) {
                         if (value !== val) {
                             _resolve(promise, val);
                         } else {
                             _fulfill(promise, val);
                         }
-                    }, function (val) {
+                    }, function(val) {
                         _reject(promise, val);
                     });
                 } catch (e) {
@@ -53,24 +53,26 @@ Sch.util.Promise = Ext.extend(Ext.util.Observable, (function () {
     }
 
     function _fulfill(promise, value) {
-        setTimeout(function () {
+        setTimeout(function() {
             promise.isFulfilled = true;
             promise.fulfillmentValue = value;
-            promise.fireEvent('promise:resolved', {
+
+            _fire('promise:resolved', promise, {
                 detail: value
             });
-            promise.clearListeners();
+            _clearAllListeners(promise);
         }, 1);
     }
 
     function _reject(promise, value) {
-        setTimeout(function () {
+        setTimeout(function() {
             promise.isRejected = true;
             promise.rejectedReason = value;
-            promise.fireEvent('promise:failed', {
+
+            _fire('promise:failed', promise, {
                 detail: value
             });
-            promise.clearListeners();
+            _clearAllListeners(promise);
         }, 1);
     }
 
@@ -104,17 +106,46 @@ Sch.util.Promise = Ext.extend(Ext.util.Observable, (function () {
         }
     }
 
+    function _addListener(type, promise, callback) {
+        if (!promise.listeners) {
+            promise.listeners = {};
+        }
+
+        if (!promise.listeners[type]) {
+            promise.listeners[type] = [];
+        }
+
+        promise.listeners[type].push(callback);
+    }
+
+    function _clearAllListeners(promise) {
+        if (promise.listeners) {
+            promise.listeners = {};
+        }
+    }
+
+    function _fire(type, promise, args) {
+        if (promise.listeners && promise.listeners[type]) {
+            if (Object.prototype.toString.call(args) !== '[object Array]') {
+                args = [args];
+            }
+
+            var callbacks = promise.listeners[type];
+            for (var i = 0; i < callbacks.length; i++) {
+                callbacks[i].apply(promise, args);
+            }
+        }
+    }
+
     return {
-        constructor: function (config) {
+        constructor: function(config) {
             if (typeof config === 'function') {
                 config = {
                     resolver: config
                 };
             }
 
-            this.addEvents('promise:resolved', 'promise:failed');
-
-            Sch.util.Promise.superclass.constructor.call(this, config);
+            Ext.apply(this, config);
 
             if (typeof this.resolver !== 'function') {
                 throw new TypeError('No resolver function defined');
@@ -123,7 +154,7 @@ Sch.util.Promise = Ext.extend(Ext.util.Observable, (function () {
             var promise = this,
                 resolved = false;
 
-            var resolvePromise = function (value) {
+            var resolvePromise = function(value) {
                 if (resolved) {
                     return;
                 }
@@ -131,7 +162,7 @@ Sch.util.Promise = Ext.extend(Ext.util.Observable, (function () {
                 _resolve(promise, value);
             };
 
-            var rejectPromise = function (value) {
+            var rejectPromise = function(value) {
                 if (resolved) {
                     return;
                 }
@@ -145,28 +176,27 @@ Sch.util.Promise = Ext.extend(Ext.util.Observable, (function () {
                 rejectPromise(e);
             }
         },
-        then: function (done, fail) {
+        then: function(done, fail) {
             var self = this,
-                thenPromise = new Sch.util.Promise(function () {});
+                thenPromise = new Sch.util.Promise(function() {});
 
             if (this.isFulfilled) {
-                setTimeout(function () {
+                setTimeout(function() {
                     _invokeCallback('resolve', thenPromise, done, {
                         detail: self.fulfillmentValue
                     });
                 }, 1);
             } else if (this.isRejected) {
-                setTimeout(function () {
+                setTimeout(function() {
                     _invokeCallback('reject', thenPromise, fail, {
                         detail: self.rejectedReason
                     });
                 }, 1);
             } else {
-                this.on('promise:resolved', function (event) {
+                _addListener('promise:resolved', this, function(event) {
                     _invokeCallback('resolve', thenPromise, done, event);
                 });
-
-                this.on('promise:failed', function (event) {
+                _addListener('promise:failed', this, function(event) {
                     _invokeCallback('reject', thenPromise, fail, event);
                 });
             }
@@ -177,7 +207,7 @@ Sch.util.Promise = Ext.extend(Ext.util.Observable, (function () {
 })());
 
 Ext.apply(Sch.util.Promise, {
-    all: function (promises) {
+    all: function(promises) {
         var results = [],
             deferred = Sch.util.Promise.defer(),
             remaining = promises.length;
@@ -186,20 +216,20 @@ Ext.apply(Sch.util.Promise, {
             deferred.resolve([]);
         }
 
-        var resolver = function (index) {
-            return function (value) {
+        var resolver = function(index) {
+            return function(value) {
                 resolveAll(index, value);
             };
         };
 
-        var resolveAll = function (index, value) {
+        var resolveAll = function(index, value) {
             results[index] = value;
             if (--remaining === 0) {
                 deferred.resolve(results);
             }
         };
 
-        var rejectAll = function (error) {
+        var rejectAll = function(error) {
             deferred.reject(error);
         };
 
@@ -212,7 +242,7 @@ Ext.apply(Sch.util.Promise, {
         }
         return deferred.promise;
     },
-    hash: function (promises) {
+    hash: function(promises) {
         var results = {}, deferred = Sch.util.Promise.defer(),
             remaining = Object.keys(promises).length;
 
@@ -220,20 +250,20 @@ Ext.apply(Sch.util.Promise, {
             deferred.resolve({});
         }
 
-        var resolver = function (prop) {
-            return function (value) {
+        var resolver = function(prop) {
+            return function(value) {
                 resolveAll(prop, value);
             };
         };
 
-        var resolveAll = function (prop, value) {
+        var resolveAll = function(prop, value) {
             results[prop] = value;
             if (--remaining === 0) {
                 deferred.resolve(results);
             }
         };
 
-        var rejectAll = function (error) {
+        var rejectAll = function(error) {
             deferred.reject(error);
         };
 
@@ -247,10 +277,10 @@ Ext.apply(Sch.util.Promise, {
 
         return deferred.promise;
     },
-    defer: function () {
+    defer: function() {
         var deferred = {};
 
-        var promise = new Sch.util.Promise(function (resolve, reject) {
+        var promise = new Sch.util.Promise(function(resolve, reject) {
             deferred.resolve = resolve;
             deferred.reject = reject;
         });
@@ -258,8 +288,8 @@ Ext.apply(Sch.util.Promise, {
         deferred.promise = promise;
         return deferred;
     },
-    resolve: function (thenable) {
-        var promise = new Sch.util.Promise(function (resolve, reject) {
+    resolve: function(thenable) {
+        var promise = new Sch.util.Promise(function(resolve, reject) {
             var then;
 
             try {
@@ -283,8 +313,8 @@ Ext.apply(Sch.util.Promise, {
 
         return promise;
     },
-    reject: function (reason) {
-        return new Sch.util.Promise(function (resolve, reject) {
+    reject: function(reason) {
+        return new Sch.util.Promise(function(resolve, reject) {
             reject(reason);
         });
     }
