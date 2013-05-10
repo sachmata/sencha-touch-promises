@@ -1,10 +1,9 @@
 /*
-  Implementation of Promises/A+ (http://promises-aplus.github.com/promises-spec)
+  Implementation of Promises/A+ (http://promises-aplus.github.com/promises-spec) for Sencha Touch 1.1.1
   that passes the test suite (http://github.com/promises-aplus/promises-tests).
 
-  Ported from RSVP.js (http://github.com/tildeio/rsvp.js)
-  and adapted to use Ext.util.Observable as EventTarget
-  plus some fixes to pass the test suite.
+  Ported from RSVP.js (http://github.com/tildeio/rsvp.js), 
+  embeded/simplified EventTarget plus some fixes to pass the test suite.
   
   See RSVP.js documentation for usage examples.
 */
@@ -61,7 +60,7 @@ Sch.util.Promise = Ext.extend(Object, (function() {
                 detail: value
             });
             _clearAllListeners(promise);
-        }, 1);
+        }, 0);
     }
 
     function _reject(promise, value) {
@@ -73,7 +72,7 @@ Sch.util.Promise = Ext.extend(Object, (function() {
                 detail: value
             });
             _clearAllListeners(promise);
-        }, 1);
+        }, 0);
     }
 
     function _invokeCallback(type, promise, callback, event) {
@@ -138,16 +137,8 @@ Sch.util.Promise = Ext.extend(Object, (function() {
     }
 
     return {
-        constructor: function(config) {
-            if (typeof config === 'function') {
-                config = {
-                    resolver: config
-                };
-            }
-
-            Ext.apply(this, config);
-
-            if (typeof this.resolver !== 'function') {
+        constructor: function(resolver) {
+            if (typeof resolver !== 'function') {
                 throw new TypeError('No resolver function defined');
             }
 
@@ -171,7 +162,7 @@ Sch.util.Promise = Ext.extend(Object, (function() {
             };
 
             try {
-                this.resolver(resolvePromise, rejectPromise);
+                resolver(resolvePromise, rejectPromise);
             } catch (e) {
                 rejectPromise(e);
             }
@@ -185,13 +176,13 @@ Sch.util.Promise = Ext.extend(Object, (function() {
                     _invokeCallback('resolve', thenPromise, done, {
                         detail: self.fulfillmentValue
                     });
-                }, 1);
+                }, 0);
             } else if (this.isRejected) {
                 setTimeout(function() {
                     _invokeCallback('reject', thenPromise, fail, {
                         detail: self.rejectedReason
                     });
-                }, 1);
+                }, 0);
             } else {
                 _addListener('promise:resolved', this, function(event) {
                     _invokeCallback('resolve', thenPromise, done, event);
