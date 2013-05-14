@@ -8,9 +8,7 @@
   See RSVP.js documentation for usage examples.
 */
 
-Ext.namespace('Sch.util');
-
-Sch.util.Promise = Ext.extend(Object, (function() {
+(function() {
     function _resolve(promise, value) {
         if (promise === value) {
             _fulfill(promise, value);
@@ -136,7 +134,7 @@ Sch.util.Promise = Ext.extend(Object, (function() {
         }
     }
 
-    return {
+    Ext.define('Sch.util.Promise', {
         constructor: function(resolver) {
             if (typeof resolver !== 'function') {
                 throw new TypeError('No resolver function defined');
@@ -167,9 +165,10 @@ Sch.util.Promise = Ext.extend(Object, (function() {
                 rejectPromise(e);
             }
         },
+
         then: function(done, fail) {
             var self = this,
-                thenPromise = new Sch.util.Promise(function() {});
+                thenPromise = new this.self(function() {});
 
             if (this.isFulfilled) {
                 setTimeout(function() {
@@ -193,120 +192,120 @@ Sch.util.Promise = Ext.extend(Object, (function() {
             }
 
             return thenPromise;
-        }
-    };
-})());
+        },
 
-Ext.apply(Sch.util.Promise, {
-    all: function(promises) {
-        var results = [],
-            deferred = Sch.util.Promise.defer(),
-            remaining = promises.length;
+        statics: {
+            all: function(promises) {
+                var results = [],
+                    deferred = this.defer(),
+                    remaining = promises.length;
 
-        if (remaining === 0) {
-            deferred.resolve([]);
-        }
-
-        var resolver = function(index) {
-            return function(value) {
-                resolveAll(index, value);
-            };
-        };
-
-        var resolveAll = function(index, value) {
-            results[index] = value;
-            if (--remaining === 0) {
-                deferred.resolve(results);
-            }
-        };
-
-        var rejectAll = function(error) {
-            deferred.reject(error);
-        };
-
-        for (var i = 0; i < promises.length; i++) {
-            if (promises[i] && typeof promises[i].then === 'function') {
-                promises[i].then(resolver(i), rejectAll);
-            } else {
-                resolveAll(i, promises[i]);
-            }
-        }
-        return deferred.promise;
-    },
-    hash: function(promises) {
-        var results = {}, deferred = Sch.util.Promise.defer(),
-            remaining = Object.keys(promises).length;
-
-        if (remaining === 0) {
-            deferred.resolve({});
-        }
-
-        var resolver = function(prop) {
-            return function(value) {
-                resolveAll(prop, value);
-            };
-        };
-
-        var resolveAll = function(prop, value) {
-            results[prop] = value;
-            if (--remaining === 0) {
-                deferred.resolve(results);
-            }
-        };
-
-        var rejectAll = function(error) {
-            deferred.reject(error);
-        };
-
-        for (var prop in promises) {
-            if (promises[prop] && typeof promises[prop].then === 'function') {
-                promises[prop].then(resolver(prop), rejectAll);
-            } else {
-                resolveAll(prop, promises[prop]);
-            }
-        }
-
-        return deferred.promise;
-    },
-    defer: function() {
-        var deferred = {};
-
-        var promise = new Sch.util.Promise(function(resolve, reject) {
-            deferred.resolve = resolve;
-            deferred.reject = reject;
-        });
-
-        deferred.promise = promise;
-        return deferred;
-    },
-    resolve: function(thenable) {
-        var promise = new Sch.util.Promise(function(resolve, reject) {
-            var then;
-
-            try {
-                if (typeof thenable === 'function' || (typeof thenable === 'object' && thenable !== null)) {
-                    then = thenable.then;
-
-                    if (typeof then === 'function') {
-                        then.call(thenable, resolve, reject);
-                    } else {
-                        resolve(thenable);
-                    }
-
-                } else {
-                    resolve(thenable);
+                if (remaining === 0) {
+                    deferred.resolve([]);
                 }
 
-            } catch (error) {
-                reject(error);
-            }
-        });
+                var resolver = function(index) {
+                    return function(value) {
+                        resolveAll(index, value);
+                    };
+                };
 
-        return promise;
-    },
-    reject: function(reason) {
-        return new Sch.util.Promise(function(resolve, reject) {
-            reject(reason);
-        });
-    }
-});
+                var resolveAll = function(index, value) {
+                    results[index] = value;
+                    if (--remaining === 0) {
+                        deferred.resolve(results);
+                    }
+                };
+
+                var rejectAll = function(error) {
+                    deferred.reject(error);
+                };
+
+                for (var i = 0; i < promises.length; i++) {
+                    if (promises[i] && typeof promises[i].then === 'function') {
+                        promises[i].then(resolver(i), rejectAll);
+                    } else {
+                        resolveAll(i, promises[i]);
+                    }
+                }
+                return deferred.promise;
+            },
+            hash: function(promises) {
+                var results = {}, deferred = this.defer(),
+                    remaining = Object.keys(promises).length;
+
+                if (remaining === 0) {
+                    deferred.resolve({});
+                }
+
+                var resolver = function(prop) {
+                    return function(value) {
+                        resolveAll(prop, value);
+                    };
+                };
+
+                var resolveAll = function(prop, value) {
+                    results[prop] = value;
+                    if (--remaining === 0) {
+                        deferred.resolve(results);
+                    }
+                };
+
+                var rejectAll = function(error) {
+                    deferred.reject(error);
+                };
+
+                for (var prop in promises) {
+                    if (promises[prop] && typeof promises[prop].then === 'function') {
+                        promises[prop].then(resolver(prop), rejectAll);
+                    } else {
+                        resolveAll(prop, promises[prop]);
+                    }
+                }
+
+                return deferred.promise;
+            },
+            defer: function() {
+                var deferred = {};
+
+                var promise = new this(function(resolve, reject) {
+                    deferred.resolve = resolve;
+                    deferred.reject = reject;
+                });
+
+                deferred.promise = promise;
+                return deferred;
+            },
+            resolve: function(thenable) {
+                var promise = new this(function(resolve, reject) {
+                    var then;
+
+                    try {
+                        if (typeof thenable === 'function' || (typeof thenable === 'object' && thenable !== null)) {
+                            then = thenable.then;
+
+                            if (typeof then === 'function') {
+                                then.call(thenable, resolve, reject);
+                            } else {
+                                resolve(thenable);
+                            }
+
+                        } else {
+                            resolve(thenable);
+                        }
+
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+
+                return promise;
+            },
+            reject: function(reason) {
+                return new this(function(resolve, reject) {
+                    reject(reason);
+                });
+            }
+        }
+    });
+})();
